@@ -1,6 +1,6 @@
 # JP Performance website
 
-Corporate website for JP PERFORMANCE LTD, with an early interactive JP Fit browser concept.
+Corporate website for JP PERFORMANCE LTD, with free BMI/rest tools, an illustrated exercise library and editable workout/meal planners. See `docs/WEBSITE-FITNESS-HUB-FA.md` for the fitness hub and deployment guide.
 
 ## Run locally on Windows
 
@@ -28,7 +28,7 @@ The default port is bound only to 127.0.0.1. To choose a different port, copy `.
 
 `compose.yml` is for the existing shared Docker server. It uses the external `hosting-edge` network, exposes Nginx internally on port 8080, and publishes no host ports. Caddy handles the public domain and TLS. See `README-FA.md` for deployment and `deploy/Caddyfile.snippet` for the route.
 
-Known Caddy container from the server inventory: `hosting-edge-caddy-1`. The active config mount still needs inspection before changing routing.
+Known Caddy container from the server inventory: `hosting-edge-caddy-1`. The active config file is `/opt/kpdc/deploy/hetzner/edge/config/Caddyfile`; do not add the domain route again during routine updates.
 
 ## Repository
 

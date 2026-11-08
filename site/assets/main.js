@@ -12,7 +12,9 @@ document.addEventListener('keydown', e => {
   }
 });
 for (const a of nav?.querySelectorAll('a') || []) {
-  if (new URL(a.href).pathname === location.pathname) a.setAttribute('aria-current','page');
+  const path = new URL(a.href).pathname;
+  if (path === location.pathname) a.setAttribute('aria-current','page');
+  else if (path.endsWith('/') && path !== '/' && location.pathname.startsWith(path)) a.setAttribute('aria-current','location');
 }
 const filters = document.querySelectorAll('[data-filter]');
 function filterProjects(value) {
@@ -91,3 +93,5 @@ if(document.querySelector('#set-form')) {
   render();tick();setInterval(tick,250);
   if(!storageAvailable)document.querySelector('#storage-notice').textContent='Browser storage is unavailable. Entries last only for this page session.';
 }
+
+for (const fieldset of document.querySelectorAll('#contact-form > fieldset.js-required, #set-form > fieldset.js-required')) fieldset.disabled=false;
