@@ -131,3 +131,8 @@ python3 -m http.server 8088 --directory site
 
 - Caddy validate/reload: https://caddyserver.com/docs/command-line
 - Nginx unprivileged: https://github.com/nginx/docker-nginx-unprivileged
+
+
+## Coaching platform 0.2
+
+See [docs/PLATFORM-FA.md](docs/PLATFORM-FA.md) for the separate ASP.NET Core 10 API, Vue member/coach portal, local Docker commands, security tests and production rollout prerequisites. This branch is a private technical preview; production public registration is closed by default. The old static-only deployment command does not enable the portal.

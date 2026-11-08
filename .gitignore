@@ -21,3 +21,18 @@ Thumbs.db
 # Server-specific copies and backups
 *.jp-backup-*
 *.bak
+
+# Platform build outputs and private data
+**/bin/
+**/obj/
+**/dist/
+platform/Api/data/
+*.db
+*.db-shm
+*.db-wal
+TestResults/
+.artifacts/
+load-users.json
+*load-users*.json
+
+!.env.platform.example

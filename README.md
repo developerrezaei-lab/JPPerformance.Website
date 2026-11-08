@@ -37,3 +37,8 @@ Commit `site/`, `deploy/`, `docs/`, both Compose files and the README/configurat
 ## Current scope
 
 This is a static corporate website, with a mailto draft composer and a local-storage workout demo. It is not an Android app. Production deployment, domain email and Play Console registration are separate steps. See `docs/VERIFICATION-FA.md` for validation and limitations.
+
+
+## Coaching platform 0.2
+
+See [docs/PLATFORM-FA.md](docs/PLATFORM-FA.md) for the separate ASP.NET Core 10 API, Vue member/coach portal, local Docker commands, security tests and production rollout prerequisites. This branch is a private technical preview; production public registration is closed by default. The old static-only deployment command does not enable the portal.
