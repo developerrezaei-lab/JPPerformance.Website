@@ -36,4 +36,4 @@ Commit `site/`, `deploy/`, `docs/`, both Compose files and the README/configurat
 
 ## Current scope
 
-This is a static corporate website, with a mailto draft composer and a local-storage workout demo. It is not an Android app. Production deployment, domain email and Play Console registration are separate steps. See `docs/VERIFICATION-FA.md` for validation and limitations.
+This is a static corporate website, with a mailto draft composer and a local-storage workout demo. The browser concept is separate from the native Android development project in `android/jp-fit/`. See `android/jp-fit/README-FA.md` for the Android MVP and `docs/PLAY-READINESS-FA.md` for release preparation. Domain email and Play Console registration are still pending. See `docs/VERIFICATION-FA.md` for validation and limitations.
