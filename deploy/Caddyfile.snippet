@@ -1,0 +1,9 @@
+# BEGIN jpperformance.co.uk
+jpperformance.co.uk {
+    encode zstd gzip
+    reverse_proxy jpperformance-web:8080
+}
+www.jpperformance.co.uk {
+    redir https://jpperformance.co.uk{uri} permanent
+}
+# END jpperformance.co.uk

@@ -1,0 +1,23 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Generated artifacts and local tooling
+*.zip
+*.log
+.openai/
+node_modules/
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Server-specific copies and backups
+*.jp-backup-*
+*.bak
