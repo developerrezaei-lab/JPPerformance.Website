@@ -6,6 +6,8 @@ node tests/platform.integration.cjs
 if ($LASTEXITCODE -ne 0) { throw 'Platform HTTP tests failed' }
 node tests/fitness-core.test.cjs
 if ($LASTEXITCODE -ne 0) { throw 'Website tests failed' }
+node tests/access-entry.test.cjs
+if ($LASTEXITCODE -ne 0) { throw 'Workspace-entry tests failed' }
 npm --prefix platform/Portal ci
 if ($LASTEXITCODE -ne 0) { throw 'Frontend installation failed' }
 npm --prefix platform/Portal run build
