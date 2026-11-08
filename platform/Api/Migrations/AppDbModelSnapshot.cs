@@ -56,6 +56,34 @@ namespace Api.Migrations
                     b.ToTable("ActivityLogs");
                 });
 
+            modelBuilder.Entity("JP.Api.CoachSupervision", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CoachId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SupervisorId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CoachId")
+                        .IsUnique();
+
+                    b.HasIndex("SupervisorId", "Id");
+
+                    b.ToTable("CoachSupervisions");
+                });
+
             modelBuilder.Entity("JP.Api.CoachingLink", b =>
                 {
                     b.Property<int>("Id")
@@ -479,6 +507,21 @@ namespace Api.Migrations
                     b.HasOne("JP.Api.Member", null)
                         .WithMany()
                         .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("JP.Api.CoachSupervision", b =>
+                {
+                    b.HasOne("JP.Api.Member", null)
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("JP.Api.Member", null)
+                        .WithMany()
+                        .HasForeignKey("SupervisorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

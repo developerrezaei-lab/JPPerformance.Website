@@ -25,6 +25,7 @@ services:
     cap_drop: [ALL]
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      Proxy__TrustedProxyHost: web
       Database__UseSqlite: 'false'
       ConnectionStrings__Database: ${JP_DATABASE_CONNECTION:?Set the dedicated runtime SQL connection string}
       ConnectionStrings__Redis: redis:6379,abortConnect=false

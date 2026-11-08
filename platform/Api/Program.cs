@@ -30,9 +30,10 @@ builder.Services.AddIdentityApiEndpoints<Member>(o => {
     o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     o.User.RequireUniqueEmail = true;
 }).AddRoles<IdentityRole>().AddEntityFrameworkStores<AppDb>();
+var requireSecureCookies = builder.Configuration.GetValue<bool?>("Security:RequireSecureCookies") ?? (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"));
 builder.Services.ConfigureApplicationCookie(o => {
     o.Cookie.Name = "jp.member"; o.Cookie.HttpOnly = true; o.Cookie.SameSite = SameSiteMode.Strict;
-    o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    o.Cookie.SecurePolicy = requireSecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
     o.ExpireTimeSpan = TimeSpan.FromHours(8); o.SlidingExpiration = true;
 });
 builder.Services.Configure<Microsoft.AspNetCore.Authentication.BearerToken.BearerTokenOptions>(IdentityConstants.BearerScheme, o => {
@@ -40,7 +41,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Authentication.BearerToken.Beare
 });
 builder.Services.AddAntiforgery(o => {
     o.HeaderName = "X-CSRF-TOKEN"; o.Cookie.Name = "jp.csrf"; o.Cookie.SameSite = SameSiteMode.Strict;
-    o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    o.Cookie.SecurePolicy = requireSecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
 var protection = builder.Services.AddDataProtection().SetApplicationName("JPPerformance.Platform.v1");
 var keyPath = builder.Configuration["DataProtection:Path"];
@@ -53,6 +54,7 @@ if (string.IsNullOrWhiteSpace(redis)) {
     builder.Services.AddDistributedMemoryCache();
 } else builder.Services.AddStackExchangeRedisCache(o => { o.Configuration = redis; o.InstanceName = "jp-platform:"; });
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDb>().AddCheck<CacheHealth>("cache");
@@ -75,6 +77,15 @@ app.Use(async (ctx, next) => {
 app.Use(async (ctx, next) => {
     ctx.Response.Headers.CacheControl = "no-store";
     ctx.Response.Headers.XContentTypeOptions = "nosniff";
+    await next();
+});
+app.UseMiddleware<TrustedProxyScheme>();
+app.Use(async (ctx, next) => {
+    if (requireSecureCookies && ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.IsHttps) {
+        ctx.Response.StatusCode = 400;
+        await ctx.Response.WriteAsJsonAsync(new { title = "Secure HTTPS access through the configured gateway is required." });
+        return;
+    }
     await next();
 });
 app.UseAuthentication();
@@ -216,29 +227,79 @@ member.MapPost("/meals", async (MealInput input, ClaimsPrincipal p, AppDb db, Ca
     db.Add(new MealLog { StudentId = own, Name = input.Name.Trim(), RecordedAt = input.RecordedAt.ToUniversalTime(), RequestId = input.RequestId, ItemsJson = JsonSerializer.Serialize(result, JsonSerializerOptions.Web), Kcal = result.Kcal, Protein = result.Protein });
     await db.SaveChangesAsync(ct); return Results.NoContent();
 });
-member.MapGet("/admin/members", async (string? q, int? after, ClaimsPrincipal p, UserManager<Member> users, AppDb db, CancellationToken ct) => {
+member.MapGet("/admin/members", async (string? q, string? role, int? after, ClaimsPrincipal p, UserManager<Member> users, AppDb db, CancellationToken ct) => {
     if (!await HasRole(p, "Admin", users)) return Results.Forbid();
     if (q?.Length > 100) return Invalid("Search is limited to 100 characters.");
     var query = db.Users.AsNoTracking(); if (!string.IsNullOrWhiteSpace(q)) query = query.Where(x => x.Email != null && x.Email.Contains(q));
+    if (!string.IsNullOrEmpty(role)) {
+        if (role is not ("Coach" or "Supervisor")) return Invalid("Choose a supported role filter.");
+        var roleId = await db.Roles.Where(x => x.Name == role).Select(x => x.Id).SingleAsync(ct);
+        query = query.Where(x => db.UserRoles.Any(r => r.UserId == x.Id && r.RoleId == roleId));
+    }
     var page = await query.OrderBy(x => x.Id).Skip(Math.Clamp(after ?? 0, 0, 1000000)).Take(30).ToArrayAsync(ct);
     var result = new List<object>(); foreach (var u in page) result.Add(new { u.Id, u.Email, u.DisplayName, roles = await users.GetRolesAsync(u) });
     return Results.Ok(result);
 });
-member.MapPut("/admin/members/{id}/coach", async (string id, CoachInput input, ClaimsPrincipal p, UserManager<Member> users) => {
+member.MapPut("/admin/members/{id}/coach", async (string id, CoachInput input, ClaimsPrincipal p, UserManager<Member> users, AppDb db, CancellationToken ct) => {
     if (!await HasRole(p, "Admin", users)) return Results.Forbid();
     var user = await users.FindByIdAsync(id); if (user is null) return Results.NotFound();
     var isCoach = await users.IsInRoleAsync(user, "Coach");
     if (input.Enabled && !isCoach) await users.AddToRoleAsync(user, "Coach");
-    else if (!input.Enabled && isCoach) await users.RemoveFromRoleAsync(user, "Coach");
+    else if (!input.Enabled && isCoach) { await users.RemoveFromRoleAsync(user, "Coach"); await db.CoachSupervisions.Where(x => x.CoachId == id).ExecuteDeleteAsync(ct); }
     await users.UpdateSecurityStampAsync(user); return Results.NoContent();
+});
+// Supervisor membership and coach assignments are controlled by the system administrator.
+member.MapPut("/admin/members/{id}/supervisor", async (string id, CoachInput input, ClaimsPrincipal p, UserManager<Member> users, AppDb db, CancellationToken ct) => {
+    if (!await HasRole(p, "Admin", users)) return Results.Forbid();
+    var user = await users.FindByIdAsync(id); if (user is null) return Results.NotFound();
+    var enabled = await users.IsInRoleAsync(user, "Supervisor");
+    if (input.Enabled && !enabled) await users.AddToRoleAsync(user, "Supervisor");
+    else if (!input.Enabled && enabled) {
+        await users.RemoveFromRoleAsync(user, "Supervisor");
+        await db.CoachSupervisions.Where(x => x.SupervisorId == id).ExecuteDeleteAsync(ct);
+    }
+    await users.UpdateSecurityStampAsync(user); return Results.NoContent();
+});
+member.MapPut("/admin/supervision/{coachId}", async (string coachId, SupervisionInput input, ClaimsPrincipal p, UserManager<Member> users, AppDb db, CancellationToken ct) => {
+    if (!await HasRole(p, "Admin", users)) return Results.Forbid();
+    var coach = await users.FindByIdAsync(coachId);
+    if (coach is null || !await users.IsInRoleAsync(coach, "Coach")) return Invalid("Choose an approved coach.");
+    if (!string.IsNullOrEmpty(input.SupervisorId)) {
+        var supervisor = await users.FindByIdAsync(input.SupervisorId);
+        if (supervisor is null || !await users.IsInRoleAsync(supervisor, "Supervisor") || supervisor.Id == coachId) return Invalid("Choose a different member with supervisor access.");
+    }
+    var assignment = await db.CoachSupervisions.FirstOrDefaultAsync(x => x.CoachId == coachId, ct);
+    if (string.IsNullOrEmpty(input.SupervisorId)) { if (assignment is not null) db.Remove(assignment); }
+    else if (assignment is not null) assignment.SupervisorId = input.SupervisorId;
+    else db.Add(new CoachSupervision { CoachId = coachId, SupervisorId = input.SupervisorId });
+    await db.SaveChangesAsync(ct); return Results.NoContent();
+});
+member.MapGet("/team/coaches", async (string? after, string? q, ClaimsPrincipal p, UserManager<Member> users, AppDb db, CancellationToken ct) => {
+    var admin = await HasRole(p, "Admin", users);
+    if (!admin && !await HasRole(p, "Supervisor", users)) return Results.Forbid();
+    if (q?.Length > 100) return Invalid("Search is limited to 100 characters.");
+    var coachRoleId = await db.Roles.Where(x => x.Name == "Coach").Select(x => x.Id).SingleAsync(ct);
+    var query = db.Users.AsNoTracking().Where(x => db.UserRoles.Any(r => r.UserId == x.Id && r.RoleId == coachRoleId));
+    var own = UserId(p);
+    if (!admin) query = query.Where(x => db.CoachSupervisions.Any(a => a.CoachId == x.Id && a.SupervisorId == own));
+    if (!string.IsNullOrEmpty(after)) query = query.Where(x => string.Compare(x.Id, after) > 0);
+    if (!string.IsNullOrWhiteSpace(q)) query = query.Where(x => x.Email != null && x.Email.Contains(q));
+    var page = await query.OrderBy(x => x.Id).Take(30).Select(x => new {
+        x.Id, x.DisplayName, x.Email,
+        supervisorId = db.CoachSupervisions.Where(a => a.CoachId == x.Id).Select(a => a.SupervisorId).FirstOrDefault(),
+        activeStudents = db.CoachingLinks.Count(l => l.CoachId == x.Id && l.Status == "Active")
+    }).ToArrayAsync(ct);
+    var supervisorIds = page.Select(x => x.supervisorId).Where(x => x != null).Distinct().ToArray();
+    var names = await db.Users.AsNoTracking().Where(x => supervisorIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.DisplayName == "" ? x.Email : x.DisplayName, ct);
+    return Results.Ok(page.Select(x => new { x.Id, x.DisplayName, x.Email, x.supervisorId, x.activeStudents, supervisorName = x.supervisorId != null ? names.GetValueOrDefault(x.supervisorId) : null }));
 });
 using (var scope = app.Services.CreateScope()) {
     var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-    if (sqlite) { Directory.CreateDirectory("data"); await db.Database.EnsureCreatedAsync(); }
+    if (sqlite) { Directory.CreateDirectory("data"); await db.Database.EnsureCreatedAsync(); await DevelopmentSchema.UpgradeSqlite(db); }
     if (args.Contains("--migrate")) { if (!sqlite) await db.Database.MigrateAsync(); await SeedCatalog(db); return; }
     // Production schema is migrated explicitly before startup, never by every replica.
     var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    foreach (var role in new[] { "Coach", "Admin" }) if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole(role));
+    foreach (var role in new[] { "Coach", "Supervisor", "Admin" }) if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole(role));
     if (sqlite) await SeedCatalog(db);
     if (args.Contains("--bootstrap-admin")) {
         var email = builder.Configuration["Bootstrap:Email"] ?? throw new InvalidOperationException("Bootstrap__Email required.");
@@ -281,4 +342,5 @@ public record InviteInput(string Email);
 public record LinkInput(string Status);
 public record RequestInput(Guid RequestId);
 public record CoachInput(bool Enabled);
+public record SupervisionInput(string? SupervisorId);
 public partial class Program { }

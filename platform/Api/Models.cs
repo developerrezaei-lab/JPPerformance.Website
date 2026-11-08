@@ -12,6 +12,12 @@ public sealed class CoachingLink
     public string Status { get; set; } = "Pending";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+public sealed class CoachSupervision
+{
+    public int Id { get; set; }
+    public string SupervisorId { get; set; } = "";
+    public string CoachId { get; set; } = "";
+}
 public sealed class Measurement
 {
     public int Id { get; set; }
@@ -64,6 +70,7 @@ public sealed class MealLog
 }
 public sealed class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<Member>(options)
 {
+    public DbSet<CoachSupervision> CoachSupervisions => Set<CoachSupervision>();
     public DbSet<CoachingLink> CoachingLinks => Set<CoachingLink>();
     public DbSet<Measurement> Measurements => Set<Measurement>();
     public DbSet<TrainingPlan> Plans => Set<TrainingPlan>();
@@ -78,7 +85,11 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : IdentityDbContext<M
             { p.SetPrecision(12); p.SetScale(2); }
         b.Entity<Member>().Property(x => x.Id).HasMaxLength(128);
         foreach (var entity in b.Model.GetEntityTypes())
-            foreach (var property in entity.GetProperties().Where(p => p.Name is "UserId" or "CoachId" or "StudentId")) property.SetMaxLength(128);
+            foreach (var property in entity.GetProperties().Where(p => p.Name is "UserId" or "CoachId" or "StudentId" or "SupervisorId")) property.SetMaxLength(128);
+        b.Entity<CoachSupervision>().HasIndex(x => x.CoachId).IsUnique();
+        b.Entity<CoachSupervision>().HasIndex(x => new { x.SupervisorId, x.Id });
+        b.Entity<CoachSupervision>().HasOne<Member>().WithMany().HasForeignKey(x => x.CoachId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<CoachSupervision>().HasOne<Member>().WithMany().HasForeignKey(x => x.SupervisorId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Member>().Property(x => x.DisplayName).HasMaxLength(80);
         b.Entity<CoachingLink>().HasIndex(x => new { x.CoachId, x.StudentId }).IsUnique();
         b.Entity<CoachingLink>().HasIndex(x => new { x.StudentId, x.Status, x.Id });

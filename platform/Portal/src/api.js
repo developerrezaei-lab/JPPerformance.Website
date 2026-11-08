@@ -1,12 +1,10 @@
 import { reactive } from 'vue';
+import { getCsrfToken, signIn } from '../../../site/assets/auth-client.js';
 export const session = reactive({ user: null, busy: false });
 let csrf = '';
 export class ApiError extends Error { constructor(message, status) { super(message); this.status = status; } }
-export async function refreshCsrf() {
-  const response = await fetch('/api/v1/auth/csrf', { credentials: 'same-origin' });
-  if (!response.ok) throw new ApiError('Could not establish a secure session. Please try again.', response.status);
-  csrf = (await response.json()).token;
-}
+export async function refreshCsrf() { csrf = await getCsrfToken(); }
+export async function loginMember(email, password) { csrf = await signIn(email, password); }
 export async function api(path, options = {}) {
   if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const method = options.method || 'GET';
@@ -24,3 +22,5 @@ export function send(path, body, method = 'POST') { return api(path, { method, b
 export async function loadSession() { try { session.user = await api('/me'); } catch (e) { if (e.status !== 401) throw e; } }
 export const isCoach = () => session.user?.roles.includes('Coach');
 export const isAdmin = () => session.user?.roles.includes('Admin');
+
+export const isSupervisor = () => session.user?.roles.includes('Supervisor');

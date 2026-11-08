@@ -25,7 +25,10 @@ Development OpenAPI: `/api/openapi/v1.json`. This document is not exposed in pro
 | Assign plan | POST `/api/v1/plans` | Approved coach, active assigned student; immutable snapshot |
 | Workout log | POST `/api/v1/plans/{id}/complete` | That student only, Workout kind |
 | Meal diary | POST `/api/v1/meals` | Own diary; consent required |
-| Admin search | GET `/api/v1/admin/members?q=email&after=0` | Administrator; `after` is offset, page size 30 |
+| Team roster | GET `/api/v1/team/coaches?q=email&after=user-id` | Supervisor: assigned coaches only; Admin: all approved coaches. No athlete health records. |
+| Assign supervisor | PUT `/api/v1/admin/supervision/{coachId}` | Admin; `{supervisorId:"member-id"}` or null to clear |
+| Approve supervisor | PUT `/api/v1/admin/members/{id}/supervisor` | Admin; `{enabled:true/false}` |
+| Admin search | GET `/api/v1/admin/members?q=email&after=0&role=Supervisor` | Administrator; `after` is offset, page size 30 |
 | Approve coach | PUT `/api/v1/admin/members/{id}/coach` | Administrator; `{enabled:true/false}` |
 
 ## Client rules
