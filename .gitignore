@@ -21,3 +21,12 @@ Thumbs.db
 # Server-specific copies and backups
 *.jp-backup-*
 *.bak
+
+# Android local SDK, build output and signing material
+local.properties
+.gradle/
+**/build/
+*.apk
+*.aab
+*.jks
+*.keystore
