@@ -36,3 +36,8 @@ load-users.json
 *load-users*.json
 
 !.env.platform.example
+
+# Server-only provisioning secrets
+.secrets/
+__pycache__/
+*.pyc

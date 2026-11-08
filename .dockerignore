@@ -11,3 +11,7 @@
 *.db*
 *.pfx
 *.key
+
+.secrets
+**/__pycache__
+*.pyc

@@ -3,7 +3,7 @@ WORKDIR /src
 COPY platform/Api/Api.csproj platform/Api/
 RUN dotnet restore platform/Api/Api.csproj
 COPY platform/Api/ platform/Api/
-RUN dotnet publish platform/Api/Api.csproj -c Release -o /out --no-restore
+RUN dotnet publish platform/Api/Api.csproj -c Release -o /out --no-restore -m:1 /p:UseSharedCompilation=false
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /out .
