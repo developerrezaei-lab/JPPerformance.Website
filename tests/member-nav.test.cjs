@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const node=()=>({hidden:false,textContent:'',href:'',title:'',open:false,disabled:false,attrs:{},listeners:{},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,v){this.listeners[k]=v;}});
+const guests=[node(),node()],footer=node(),name=node(),initials=node(),summary=node(),status=node(),logout=node();
+const account={...node(),querySelector:s=>({'[data-member-name]':name,'summary':summary,'[data-member-initials]':initials}[s])};
+const events={};let remote={id:'member-1',displayName:'Alex Morgan',email:'synthetic@example.test'},calls=0,queued=null,logoutCalls=0;
+const document={querySelectorAll:s=>({'[data-guest-link]':guests,'[data-member-footer]':[footer],'[data-member-signout]':[logout]}[s]||[]),querySelector:s=>({'[data-member-account]':account,'[data-member-status]':status}[s]||null)};
+const ctx=vm.createContext({document,Date,Set,window:{addEventListener:(key,fn)=>events[key]=fn},readMember:async()=>{calls++;if(queued)return queued();if(remote instanceof Error)throw remote;return remote;},signOut:async()=>{logoutCalls++;remote=null;},notifySessionChange:()=>{},console});
+let code=fs.readFileSync('site/assets/member-nav.js','utf8').replace(/^import .*;\n/,'').replace(/export /g,'');
+code+='\nglobalThis.testAPI={refreshMember,logoutMember,subscribeMember};';vm.runInContext(code,ctx);
+const tick=()=>new Promise(r=>setImmediate(r));let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;};
+(async()=>{
+ await tick();ok(guests.every(x=>x.hidden),'hide sign-in and registration for a valid session');ok(!account.hidden,'show account menu');ok(name.textContent==='Alex Morgan','show server-provided name');ok(initials.textContent==='AM','name initials');ok(footer.href==='/portal/'&&footer.textContent==='My dashboard','footer reflects member session');
+ remote=new Error('network');await ctx.testAPI.refreshMember(true);ok(!account.hidden&&name.textContent==='Alex Morgan','transient request failure does not falsely log out a known member');
+ remote=null;events.pageshow({persisted:true});await tick();ok(account.hidden&&guests.every(x=>!x.hidden),'back-forward restoration checks expired session');
+ remote={id:'member-2',displayName:'<script>literal-name</script>',email:'synthetic@example.test'};await ctx.testAPI.refreshMember(true);ok(name.textContent==='<script>literal-name</script>','name is assigned as text, not HTML');
+ await ctx.testAPI.logoutMember();ok(logoutCalls===1&&account.hidden,'sign-out clears visible member state');ok(footer.href==='/login/','footer switches back after logout');
+ let resolveOld;queued=()=>new Promise(r=>resolveOld=r);const old=ctx.testAPI.refreshMember(true);await tick();queued=null;remote={id:'new',displayName:'New session'};await ctx.testAPI.refreshMember(true);resolveOld({id:'old',displayName:'Old session'});await old;ok(name.textContent==='New session','late old response cannot replace a newer session');
+ const before=calls;events.pageshow({persisted:false});await tick();ok(calls===before,'initial page-show does not duplicate the first session request');
+ console.log(`PASS ${checks} public member-navigation state checks`);
+})().catch(e=>{console.error(e);process.exitCode=1;});

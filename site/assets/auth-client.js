@@ -22,3 +22,45 @@ export async function signIn(email, password, fetcher = fetch) {
   if (!response.ok) throw failure(response.status);
   return getCsrfToken(fetcher); // Anti-forgery identity changes after authentication.
 }
+
+export async function readMember(fetcher = fetch) {
+  const response = await request('/me', { headers: { Accept: 'application/json' } }, fetcher);
+  if (response.status === 401) return null;
+  if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw failure(response.status);
+  const member = await response.json().catch(() => null);
+  if (!member || typeof member.id !== 'string' || !member.id) throw failure(response.status);
+  return member;
+}
+export async function signOut(fetcher = fetch) {
+  const token = await getCsrfToken(fetcher);
+  const response = await request('/auth/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': token } }, fetcher);
+  if (!response.ok && response.status !== 401) throw failure(response.status);
+}
+export function safeReturnPath(candidate) {
+  const allowed = new Set(['/portal/', '/portal/progress', '/portal/nutrition', '/portal/exercises', '/portal/coach', '/portal/team', '/portal/admin']);
+  const path = typeof candidate === 'string' ? candidate.split(/[?#]/)[0] : '';
+  return allowed.has(path) ? path : '/portal/';
+}
+export function notifySessionChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('jp:session-changed'));
+  if (window.BroadcastChannel) { const channel = new BroadcastChannel('jp-member-session'); channel.postMessage('changed'); channel.close(); }
+}
+export async function signUp(profile, fetcher = fetch) {
+  const token = await getCsrfToken(fetcher);
+  const response = await request('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token }, body: JSON.stringify({ email: profile.email, password: profile.password }) }, fetcher);
+  if (!response.ok) {
+    const problem = await response.json().catch(() => ({}));
+    const message = response.status === 403 ? 'Account registration is not open yet. Please contact JP Performance.' : Object.values(problem.errors || {}).flat().join(' ') || problem.detail || 'We could not create the account. Please check your details.';
+    throw new SignInError(message, response.status);
+  }
+  try {
+    const signedInToken = await signIn(profile.email, profile.password, fetcher);
+    const saved = await request('/me', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': signedInToken }, body: JSON.stringify({ displayName: profile.name, healthDataConsent: true }) }, fetcher);
+    if (!saved.ok) throw failure(saved.status);
+  } catch {
+    const error = new SignInError('Your account was created. Please sign in or open your dashboard to finish setting up your profile.');
+    error.accountCreated = true;
+    throw error;
+  }
+}

@@ -1,22 +1,41 @@
-import { signIn } from './auth-client.js?v=20261109.2';
-const form = document.querySelector('#member-login');
-const fields = document.querySelector('#login-fields');
-const status = document.querySelector('#login-status');
-const button = document.querySelector('#login-submit');
+import { signIn, signUp, safeReturnPath, notifySessionChange } from './auth-client.js?v=20261109.3';
+import { subscribeMember, refreshMember } from './member-nav.js?v=20261109.3';
+const form = document.querySelector('#member-auth');
+const fields = document.querySelector('#account-fields');
+const status = document.querySelector('#account-status');
+const button = document.querySelector('#account-submit');
+const registration = form.dataset.mode === 'register';
 let busy = false;
-fields.disabled = false; // Enable the form once its handler is installed; do not pre-disable on API availability.
+subscribeMember(state => {
+  document.querySelector('[data-account-form]').hidden = !!state.user;
+  document.querySelector('[data-signed-in]').hidden = !state.user;
+  document.querySelector('[data-signed-name]').textContent = state.user?.displayName || state.user?.email || '';
+});
+if (new URLSearchParams(location.search).get('created') === '1') {
+  const notice = document.querySelector('[data-account-notice]');
+  notice.textContent = 'Your account was created. Sign in to continue setting up your profile.'; notice.hidden = false;
+}
+document.querySelector('[data-password-toggle]').addEventListener('click', event => {
+  const input = document.querySelector('#member-password');
+  const show = input.type === 'password'; input.type = show ? 'text' : 'password';
+  event.currentTarget.textContent = show ? 'Hide' : 'Show'; event.currentTarget.setAttribute('aria-pressed', String(show));
+});
 form.addEventListener('submit', async event => {
   event.preventDefault();
   if (busy) return;
-  busy = true; fields.disabled = true; button.textContent = 'Signing in…'; status.textContent = '';
-  const email = document.querySelector('#login-email').value.trim();
-  const password = document.querySelector('#login-password').value;
+  const email = document.querySelector('#member-email').value.trim();
+  const password = document.querySelector('#member-password').value;
+  const name = registration ? document.querySelector('#member-name').value.trim() : '';
+  if (registration && !form.elements.consent.checked) return;
+  busy = true; fields.disabled = true; button.textContent = registration ? 'Creating account…' : 'Signing in…'; status.textContent = '';
   try {
-    await signIn(email, password);
-    document.querySelector('#login-password').value = '';
-    location.assign('/portal/');
+    if (registration) await signUp({ email, password, name }); else await signIn(email, password);
+    notifySessionChange();
+    location.assign(safeReturnPath(new URLSearchParams(location.search).get('next')));
   } catch (error) {
+    if (error.accountCreated) { notifySessionChange(); location.assign('/login/?created=1'); return; }
     status.textContent = error.message;
-    document.querySelector('#login-password').value = '';
-  } finally { busy = false; fields.disabled = false; button.textContent = 'Sign in →'; }
+    refreshMember(true);
+  } finally { document.querySelector('#member-password').value = ''; busy = false; fields.disabled = false; button.textContent = registration ? 'Create account →' : 'Sign in →'; }
 });
+fields.disabled = false;

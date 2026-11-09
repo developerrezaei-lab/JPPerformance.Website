@@ -1,32 +1,39 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
-import { session, api, send, loadSession, refreshCsrf, loginMember, isCoach, isAdmin } from './api';
+import { session, api, send, loadSession, isCoach, isAdmin } from './api';
 import { permissions } from './permissions';
-const loading = ref(true), failure = ref(''), authError = ref(''), mode = ref('login'), email = ref(''), password = ref(''), name = ref(''), consent = ref(false);
-const busy = ref(false);
-const route = useRoute();
-const currentPath = computed(() => route.path.replace(/\/$/, '') || '/');
-const access = computed(() => permissions(session.user));
-const wrongWorkspace = computed(() => session.user && ((currentPath.value==='/admin' && !access.value.admin) || (currentPath.value==='/coach' && !access.value.coach) || (currentPath.value==='/team' && !access.value.team)));
-async function init() { loading.value = true; failure.value = ''; try { await refreshCsrf(); await loadSession(); } catch (e) { failure.value = e.message; } finally { loading.value = false; } }
-onMounted(() => { if (route.query.register === '1') mode.value = 'register'; init(); });
-async function authenticate() {
-  busy.value = true; authError.value = ''; failure.value = '';
-  try {
-    if (mode.value === 'register') { await refreshCsrf(); if (!consent.value) throw new Error('Please confirm the membership terms.'); await send('/auth/register', { email: email.value, password: password.value }); }
-    await loginMember(email.value, password.value);
+import { safeReturnPath, notifySessionChange } from '../../../site/assets/auth-client.js';
+const loading=ref(true),failure=ref(''),busy=ref(false);
+const route=useRoute();
+const currentPath=computed(()=>route.path.replace(/\/$/,'')||'/');
+const access=computed(()=>permissions(session.user));
+const wrongWorkspace=computed(()=>session.user&&((currentPath.value==='/admin'&&!access.value.admin)||(currentPath.value==='/coach'&&!access.value.coach)||(currentPath.value==='/team'&&!access.value.team)));
+const needsConsent=computed(()=>session.user&&!session.user.healthDataConsentAt&&(['/progress','/nutrition'].includes(currentPath.value)||(currentPath.value==='/'&&!access.value.coach&&!access.value.team)));
+let request=0,channel;
+async function init(){
+  const own=++request;loading.value=true;failure.value='';
+  try{
     await loadSession();
-    if (mode.value === 'register') { await send('/me', { displayName: name.value, healthDataConsent: true }, 'PUT'); await loadSession(); }
-    password.value = '';
-  } catch (e) { authError.value = e.message; password.value = ''; } finally { busy.value = false; }
+    if(own!==request)return;
+    if(!session.user){
+      const register=route.query.register==='1'||currentPath.value==='/register';
+      const next=safeReturnPath('/portal'+(route.path==='/'?'/':route.path));
+      location.replace(register?'/register/':'/login/?next='+encodeURIComponent(next));
+    }
+  }catch(e){if(own===request)failure.value=e.message;}
+  finally{if(own===request)loading.value=false;}
 }
-async function logout() { try { await api('/auth/logout', { method: 'POST' }); session.user = null; await refreshCsrf(); } catch (e) { failure.value = e.message; } }
+async function logout(){busy.value=true;failure.value='';try{await api('/auth/logout',{method:'POST'});session.user=null;notifySessionChange();location.replace('/login/');}catch(e){failure.value=e.message;}finally{busy.value=false;}}
+async function consent(){try{await send('/me',{displayName:session.user.displayName||'Member',healthDataConsent:true},'PUT');await loadSession();}catch(e){failure.value=e.message;}}
+function restore(event){if(event.persisted)init();}
+onMounted(()=>{init();window.addEventListener('pageshow',restore);if(window.BroadcastChannel){channel=new BroadcastChannel('jp-member-session');channel.addEventListener('message',init);}});
+onBeforeUnmount(()=>{window.removeEventListener('pageshow',restore);channel?.close();});
 </script>
 <template>
-  <div class="studio-shell">
-    <aside class="sidebar">
-      <a class="brand" href="/"><img :src="'/assets/brand/logo-mark.svg?v=20261108.2'" alt="JP mind and body"><span>JP PERFORMANCE<small>MEMBER STUDIO</small></span></a>
+  <div class="studio-shell" :class="{'studio-guest':!session.user}">
+    <aside v-if="session.user" class="sidebar">
+      <a class="brand" href="/"><img :src="'/assets/brand/logo-mark.svg?v=20261109.3'" alt="JP mind and body"><span>JP PERFORMANCE<small>MEMBER STUDIO</small></span></a>
       <p class="nav-label">YOUR SPACE</p>
       <nav aria-label="Member navigation">
         <RouterLink to="/">My dashboard <span>→</span></RouterLink>
@@ -41,27 +48,16 @@ async function logout() { try { await api('/auth/logout', { method: 'POST' }); s
       <a class="back-link" href="/">← Back to JP Performance</a>
     </aside>
     <div class="studio-main">
-      <header class="topbar"><span>YOUR MIND. YOUR BODY. YOUR PACE.</span><div v-if="session.user" class="member-menu"><span>{{ session.user.displayName || session.user.email }}<small class="role-label">{{access.label}}</small></span><button class="text-button" @click="logout">Sign out</button></div><span v-else class="tag">MEMBER SIGN IN</span></header>
+      <header v-if="session.user" class="topbar"><span>YOUR MIND. YOUR BODY. YOUR PACE.</span><div class="member-menu"><span>{{session.user.displayName||session.user.email}}<small class="role-label">{{access.label}}</small></span><button class="text-button" :disabled="busy" @click="logout">Sign out</button></div></header>
+      <header v-else class="guest-bar"><a href="/" class="brand"><img :src="'/assets/brand/logo-mark.svg?v=20261109.3'" alt="JP"><span>JP PERFORMANCE</span></a><nav aria-label="Account access"><a href="/login/">Sign in</a><a href="/register/">Create account</a></nav></header>
       <main id="main">
-        <div v-if="loading" class="card" role="status">Preparing your studio…</div>
-        <div v-if="!loading && failure" class="card error" role="alert"><h2>We couldn’t connect.</h2><p>{{ failure }}</p><button @click="init">Try again</button></div>
-        <section v-if="!loading && !session.user" class="auth-layout">
-          <div class="auth-intro"><p class="eyebrow">A LITTLE STRUCTURE. A LOT OF POSSIBILITY.</p><h1>Your next<br> chapter<br> <em>starts here.</em></h1><p>Keep your training, meals and progress in one clear space. Work with your coach. Build habits at your pace.</p><div class="intro-pills"><span>Personal progress</span><span>Coach-led plans</span><span>Food diary</span></div><p class="muted">For adults aged 18 and over. General fitness support; not medical or clinical nutrition care.</p></div>
-          <form class="card auth-card" @submit.prevent="authenticate">
-            <div class="segmented"><button type="button" :class="{selected:mode==='login'}" @click="mode='login';authError=''">Sign in</button><button type="button" :class="{selected:mode==='register'}" @click="mode='register';authError=''">Create account</button></div>
-            <h2>{{ mode === 'login' ? 'Welcome back.' : 'Make room for progress.' }}</h2><p class="muted">{{ mode === 'login' ? 'Sign in once. Your tools and dashboard adapt to your permissions.' : 'Start with a free student account. Coach access is approved by an administrator.' }}</p>
-            <label v-if="mode==='register'">Your name<input v-model="name" autocomplete="name" required maxlength="80"></label>
-            <label>Email address<input v-model="email" type="email" autocomplete="email" required maxlength="254"></label>
-            <label>Password<input v-model="password" type="password" :autocomplete="mode==='login'?'current-password':'new-password'" required minlength="12" maxlength="128"></label>
-            <p v-if="mode==='register'" class="hint">At least 12 characters, including upper and lowercase letters, a number and a symbol.</p>
-            <label v-if="mode==='register'" class="check"><input v-model="consent" type="checkbox" required><span>I am 18 or older. I consent to storing my fitness and meal records as described in the <a href="/privacy.html" target="_blank" rel="noopener">privacy notice</a>. Coaches can access these records only after I accept their invitation.</span></label>
-            <p v-if="authError" class="error" role="alert">{{ authError }}</p><button class="primary wide" :disabled="busy">{{ busy ? 'Please wait…' : mode==='login'?'Sign in →':'Create my account →' }}</button>
-            <p class="hint">No role selection needed. Coach, supervisor and administrator access is assigned by your system administrator.</p>
-            <p class="hint">Private technical preview: use fictional test data. Public registration is closed by default in production. Email password recovery is not yet available.</p>
-          </form>
-        </section>
-        <section v-else-if="!loading && wrongWorkspace" class="card access-denied"><p class="eyebrow">WORKSPACE ACCESS</p><h1>This page requires additional access.</h1><p>You are signed in as {{session.user.displayName || session.user.email}}, but this page is not available to your account.</p><div class="actions"><RouterLink to="/">Continue to my workspace →</RouterLink><button class="secondary" @click="logout">Sign out and use another account</button></div></section>
-        <template v-else-if="!loading && session.user"><div v-if="['/','/progress','/nutrition'].includes(currentPath) && !session.user.healthDataConsentAt" class="notice"><strong>Before saving health records:</strong><p>Confirm you are 18 or older and consent to the processing described in our <a href="/privacy.html">privacy notice</a>.</p><button @click="async()=>{try{await send('/me',{displayName:session.user.displayName||'Member',healthDataConsent:true},'PUT');await loadSession()}catch(e){failure=e.message}}">I agree and consent</button></div><RouterView :key="session.user.id"/></template>
+        <div v-if="loading" class="card guest-status" role="status">Checking your account…</div>
+        <div v-else-if="failure" class="card error guest-status" role="alert"><h1>We couldn’t connect.</h1><p>{{failure}}</p><div class="actions"><button @click="init">Try again</button><a href="/login/">Sign in</a><a href="/register/">Create account</a></div></div>
+        <template v-else-if="session.user">
+          <section v-if="wrongWorkspace" class="card access-denied"><p class="eyebrow">WORKSPACE ACCESS</p><h1>This page requires additional access.</h1><p>You are signed in as {{session.user.displayName||session.user.email}}, but this page is not available to your account.</p><div class="actions"><RouterLink to="/">Continue to my workspace →</RouterLink><button class="secondary" @click="logout">Sign out</button></div></section>
+          <template v-else><div v-if="needsConsent" class="notice"><strong>Before saving health records:</strong><p>Confirm you are 18 or older and consent to the processing described in our <a href="/privacy.html">privacy notice</a>.</p><button @click="consent">I agree and consent</button></div><RouterView :key="session.user.id"/></template>
+        </template>
+        <div v-else class="card guest-status" role="status">Opening account access… <a href="/login/">Sign in</a> or <a href="/register/">create an account</a>.</div>
       </main>
       <footer class="studio-footer">JP PERFORMANCE LTD <span>Move. Think. Grow.</span><a href="/privacy.html">Privacy & your data</a></footer>
     </div>
