@@ -11,6 +11,10 @@ if(fs.existsSync(previewConfig)){
 const types={'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.woff2':'font/woff2','.json':'application/json','.txt':'text/plain'};
 http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
+ const registration=url.pathname==='/portal/register'||url.pathname==='/portal/register/'||((url.pathname==='/portal'||url.pathname.startsWith('/portal/'))&&url.searchParams.get('register')==='1');
+ if(registration||url.pathname==='/portal/login'||url.pathname==='/portal/login/'){
+  res.writeHead(302,{Location:registration?'/register/':'/login/','Cache-Control':'no-store'});res.end();return;
+ }
  if(url.pathname.startsWith('/api/')){const proxy=http.request({hostname:'127.0.0.1',port:5080,path:req.url,method:req.method,headers:{...req.headers,host:'localhost'}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});proxy.on('error',()=>{res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({title:'Start the local API on port 5080.'}));});req.pipe(proxy);return;}
  let decoded;try{decoded=decodeURIComponent(url.pathname);}catch{res.writeHead(400);res.end();return;}
  const portal=decoded.startsWith('/portal/'),base=path.join(root,portal?'platform/Portal/dist':'site');

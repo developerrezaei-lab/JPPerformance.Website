@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip } from 'chart.js';
 import { api, send, session } from './api';
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip);
+Chart.defaults.font.size = 13;
+Chart.defaults.font.family = "Manrope, Vazirmatn, sans-serif";
 const progress = ref(null), plans = ref([]), links = ref([]), error = ref(''), message = ref(''), loading = ref(true), busy = ref(false), chartElement = ref(null);
 const weight = ref(''), waist = ref(''), date = ref(new Date().toISOString().slice(0,10)), days = ref(90);
 let chart;

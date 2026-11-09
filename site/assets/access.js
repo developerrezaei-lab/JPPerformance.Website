@@ -1,5 +1,5 @@
-import { signIn, signUp, safeReturnPath, notifySessionChange } from './auth-client.js?v=20261109.3';
-import { subscribeMember, refreshMember } from './member-nav.js?v=20261109.3';
+import { signIn, signUp, safeReturnPath, notifySessionChange } from './auth-client.js?v=20261109.4';
+import { subscribeMember, refreshMember } from './member-nav.js?v=20261109.4';
 const form = document.querySelector('#member-auth');
 const fields = document.querySelector('#account-fields');
 const status = document.querySelector('#account-status');

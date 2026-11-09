@@ -33,7 +33,7 @@ onBeforeUnmount(()=>{window.removeEventListener('pageshow',restore);channel?.clo
 <template>
   <div class="studio-shell" :class="{'studio-guest':!session.user}">
     <aside v-if="session.user" class="sidebar">
-      <a class="brand" href="/"><img :src="'/assets/brand/logo-mark.svg?v=20261109.3'" alt="JP mind and body"><span>JP PERFORMANCE<small>MEMBER STUDIO</small></span></a>
+      <a class="brand" href="/"><img :src="'/assets/brand/logo-mark.svg?v=20261109.4'" alt="JP mind and body"><span>JP PERFORMANCE<small>MEMBER STUDIO</small></span></a>
       <p class="nav-label">YOUR SPACE</p>
       <nav aria-label="Member navigation">
         <RouterLink to="/">My dashboard <span>→</span></RouterLink>
@@ -49,7 +49,7 @@ onBeforeUnmount(()=>{window.removeEventListener('pageshow',restore);channel?.clo
     </aside>
     <div class="studio-main">
       <header v-if="session.user" class="topbar"><span>YOUR MIND. YOUR BODY. YOUR PACE.</span><div class="member-menu"><span>{{session.user.displayName||session.user.email}}<small class="role-label">{{access.label}}</small></span><button class="text-button" :disabled="busy" @click="logout">Sign out</button></div></header>
-      <header v-else class="guest-bar"><a href="/" class="brand"><img :src="'/assets/brand/logo-mark.svg?v=20261109.3'" alt="JP"><span>JP PERFORMANCE</span></a><nav aria-label="Account access"><a href="/login/">Sign in</a><a href="/register/">Create account</a></nav></header>
+      <header v-else class="guest-bar"><a href="/" class="brand"><img :src="'/assets/brand/logo-mark.svg?v=20261109.4'" alt="JP"><span>JP PERFORMANCE</span></a><nav aria-label="Account access"><a href="/login/">Sign in</a><a href="/register/">Create account</a></nav></header>
       <main id="main">
         <div v-if="loading" class="card guest-status" role="status">Checking your account…</div>
         <div v-else-if="failure" class="card error guest-status" role="alert"><h1>We couldn’t connect.</h1><p>{{failure}}</p><div class="actions"><button @click="init">Try again</button><a href="/login/">Sign in</a><a href="/register/">Create account</a></div></div>
