@@ -3,3 +3,6 @@
 @media(max-width:1080px){.editorial-hero>.editorial-image{height:510px}.editorial-hero figcaption{padding:16px;grid-template-columns:1fr}.editorial-hero figcaption strong{grid-column:auto;grid-row:auto}.editorial-intro{gap:30px}.editorial-intro .editorial-image{height:240px}}
 @media(max-width:700px){.editorial-hero{width:100%;max-width:none;border-radius:100px 20px 20px 20px}.editorial-hero>.editorial-image{height:420px}.editorial-hero figcaption{grid-template-columns:1fr auto}.editorial-hero figcaption strong{grid-column:2;grid-row:span 2;font-size:22px}.editorial-intro{grid-template-columns:1fr;gap:25px}.editorial-intro .editorial-image{height:190px}.editorial-intro h1{font-size:42px}.card-photo{height:180px}.editorial-meals>.editorial-image{aspect-ratio:1.3}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.editorial-secondary .editorial-image{object-position:center 60%}.editorial-secondary .image-credit{font-size:13px;line-height:1.6}.editorial-secondary>div{min-width:0}
+@media(max-width:700px){.editorial-secondary .editorial-image{height:auto;aspect-ratio:1.79}.editorial-secondary .image-credit{text-align:left}}
