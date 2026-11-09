@@ -1,3 +1,4 @@
+import {notify,queueNotice} from './feedback.js?v=20261109.7';
 import { signIn, signUp, safeReturnPath, notifySessionChange } from './auth-client.js?v=20261109.5';
 import { subscribeMember, refreshMember } from './member-nav.js?v=20261109.5';
 const form = document.querySelector('#member-auth');
@@ -30,11 +31,13 @@ form.addEventListener('submit', async event => {
   busy = true; fields.disabled = true; button.textContent = registration ? 'Creating account…' : 'Signing in…'; status.textContent = '';
   try {
     if (registration) await signUp({ email, password, name }); else await signIn(email, password);
+    queueNotice(registration ? 'Your account is ready. Welcome to JP Performance.' : 'Signed in successfully.');
     notifySessionChange();
     location.assign(safeReturnPath(new URLSearchParams(location.search).get('next')));
   } catch (error) {
     if (error.accountCreated) { notifySessionChange(); location.assign('/login/?created=1'); return; }
     status.textContent = error.message;
+    notify(error.message,'error');
     refreshMember(true);
   } finally { document.querySelector('#member-password').value = ''; busy = false; fields.disabled = false; button.textContent = registration ? 'Create account →' : 'Sign in →'; }
 });

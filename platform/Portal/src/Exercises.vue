@@ -1,10 +1,12 @@
 <script setup>
+import { watchFeedback } from './feedback';
 import { ref, computed, onMounted } from 'vue';
 import { api } from './api';
 const exercises=ref([]),q=ref(''),group=ref(''),error=ref(''),selected=ref(null),loading=ref(true);
 const filtered=computed(()=>exercises.value.filter(e=>(!group.value||e.group===group.value)&&e.name.toLowerCase().includes(q.value.toLowerCase())));
 async function load(){loading.value=true;error.value='';try{exercises.value=await api('/catalog/exercises');}catch(e){error.value=e.message;}finally{loading.value=false;}}
 onMounted(load);
+watchFeedback(error,null);
 </script>
 <template>
   <div class="page-heading"><div><p class="eyebrow">MOVE WITH A LITTLE MORE CONFIDENCE</p><h1>Find your next move<span class="lime-dot">.</span></h1><p>Clear cues. Simple equipment. A place to start.</p></div><span class="tag">EXERCISE LIBRARY</span></div>

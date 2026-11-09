@@ -1,4 +1,5 @@
 <script setup>
+import { watchFeedback } from './feedback';
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip } from 'chart.js';
 import { api, send, session } from './api';
@@ -24,6 +25,7 @@ async function relationship(link,status){busy.value=true;try{await send('/links/
 async function complete(plan){busy.value=true;try{await send('/plans/'+plan.id+'/complete',{requestId:crypto.randomUUID()});message.value='Workout recorded. Well done for showing up.';await load();}catch(e){error.value=e.message;}finally{busy.value=false;}}
 function content(plan){try{return JSON.parse(plan.contentJson);}catch{return null;}}
 onMounted(load);onBeforeUnmount(()=>chart?.destroy());
+watchFeedback(error,message);
 </script>
 <template>
   <div class="page-heading"><div><p class="eyebrow">YOUR EVERYDAY STARTING POINT</p><h1>Hello, {{ session.user.displayName || 'there' }}<span class="lime-dot">.</span></h1><p>A clear view of where you are, and what comes next.</p></div><span class="tag">{{ new Date().toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}) }}</span></div>

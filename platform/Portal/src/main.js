@@ -9,6 +9,9 @@ import Nutrition from './Nutrition.vue';
 import Exercises from './Exercises.vue';
 import Admin from './Admin.vue';
 import './style.css';
+import '../../../site/assets/feedback.css';
+import {installFeedback} from '../../../site/assets/feedback.js';
+installFeedback();
 const router = createRouter({ history: createWebHistory('/portal/'), routes: [
   { path: '/', component: Home }, { path: '/register', component: Home }, { path: '/progress', component: Dashboard }, { path: '/team', component: Team }, { path: '/coach', component: Coach }, { path: '/nutrition', component: Nutrition }, { path: '/exercises', component: Exercises }, { path: '/admin', component: Admin }, { path: '/:pathMatch(.*)*', redirect: '/' }
 ] });

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { session, api, send, loadSession, isCoach, isAdmin } from './api';
 import { permissions } from './permissions';
 import { safeReturnPath, notifySessionChange } from '../../../site/assets/auth-client.js';
+import { notify, watchFeedback } from './feedback';
 const loading=ref(true),failure=ref(''),busy=ref(false);
 const route=useRoute();
 const currentPath=computed(()=>route.path.replace(/\/$/,'')||'/');
@@ -25,10 +26,11 @@ async function init(){
   finally{if(own===request)loading.value=false;}
 }
 async function logout(){busy.value=true;failure.value='';try{await api('/auth/logout',{method:'POST'});session.user=null;notifySessionChange();location.replace('/login/');}catch(e){failure.value=e.message;}finally{busy.value=false;}}
-async function consent(){try{await send('/me',{displayName:session.user.displayName||'Member',healthDataConsent:true},'PUT');await loadSession();}catch(e){failure.value=e.message;}}
+async function consent(){try{await send('/me',{displayName:session.user.displayName||'Member',healthDataConsent:true},'PUT');await loadSession();notify('Your preference was saved.','success');}catch(e){failure.value=e.message;}}
 function restore(event){if(event.persisted)init();}
 onMounted(()=>{init();window.addEventListener('pageshow',restore);if(window.BroadcastChannel){channel=new BroadcastChannel('jp-member-session');channel.addEventListener('message',init);}});
 onBeforeUnmount(()=>{window.removeEventListener('pageshow',restore);channel?.close();});
+watchFeedback(failure);
 </script>
 <template>
   <div class="studio-shell" :class="{'studio-guest':!session.user}">

@@ -66,3 +66,8 @@ Nutrition template:
 ```
 
 Food ID 1 is an example only; search the catalogue and choose the correct food/preparation. A Nutrition template is a list of foods/portions; this version does not represent a multi-day clinical diet.
+
+### Food discovery
+
+`GET /api/v1/catalog/food-filters` returns `categories` and `cuisines`.
+`GET /api/v1/catalog/foods?q=rice&category=Rice&cuisine=Italy&common=false&after=0&take=30` combines optional filters, then paginates by food ID. `take` is capped at 100, and public UI requests 30. Unknown groups/styles return 400. The existing array response gains `category`, `cuisines`, `isCommon` and a local `imageUrl` for a group illustration. Cuisine labels are discovery tags, not verified geographic provenance. No labelled Iranian dishes are currently present. Persian aliases support basic searches such as برنج; reference names and nutrition remain CoFID records.

@@ -1,4 +1,5 @@
 <script setup>
+import { watchFeedback } from './feedback';
 import { ref, computed, onMounted } from 'vue';
 import { api, send, session, isCoach } from './api';
 import FoodBuilder from './FoodBuilder.vue';
@@ -13,6 +14,7 @@ async function student(){progress.value=null;plans.value=[];error.value='';if(!s
 function add(){if(exerciseId.value&&entries.value.length<30)entries.value.push({exerciseId:exerciseId.value,sets:3,reps:10,restSeconds:60});}
 async function assign(){busy.value=true;error.value='';message.value='';try{await send('/plans',{studentId:selected.value,title:title.value,kind:kind.value,exercises:kind.value==='Workout'?entries.value:null,foods:kind.value==='Nutrition'?calculated.value?.portions:null});message.value='Plan assigned. A saved snapshot is now visible to your student.';title.value='';entries.value=[];await student();}catch(e){error.value=e.message;}finally{busy.value=false;}}
 onMounted(()=>{if(isCoach())load();});
+watchFeedback(error,message);
 </script>
 <template>
   <div v-if="!isCoach()" class="card"><h1>Coach access required.</h1><p>An administrator must approve your coaching account.</p></div>

@@ -9,7 +9,8 @@ export async function api(path, options = {}) {
   if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const method = options.method || 'GET';
   if (method !== 'GET' && !csrf) await refreshCsrf();
-  const response = await fetch('/api/v1' + path, { ...options, credentials: 'same-origin', headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(method !== 'GET' ? { 'X-CSRF-TOKEN': csrf } : {}), ...options.headers } });
+  let response;
+  try { response = await fetch('/api/v1' + path, { ...options, credentials: 'same-origin', headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(method !== 'GET' ? { 'X-CSRF-TOKEN': csrf } : {}), ...options.headers } }); } catch(error) { if(error.name==='AbortError')throw error; throw new ApiError('We could not connect. Check your connection and try again.',0); }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const message = response.status === 401 ? 'Please sign in again.' : response.status === 429 ? 'Too many requests. Please wait a minute.' : data.detail || Object.values(data.errors || {}).flat().join(' ') || data.title || 'The request could not be completed.';

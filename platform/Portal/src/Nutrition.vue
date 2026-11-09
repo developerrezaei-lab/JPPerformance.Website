@@ -1,9 +1,11 @@
 <script setup>
+import { watchFeedback } from './feedback';
 import { ref } from 'vue';
 import { send, session } from './api';
 import FoodBuilder from './FoodBuilder.vue';
 const calculated=ref(null),name=ref('Lunch'),date=ref(new Date().toISOString().slice(0,10)),error=ref(''),message=ref(''),busy=ref(false);
 async function save(){busy.value=true;error.value='';message.value='';try{await send('/meals',{name:name.value,recordedAt:new Date(date.value+'T00:00:00Z').toISOString(),items:calculated.value.portions,requestId:crypto.randomUUID()});message.value='Meal saved to your private diary. See today’s total in Overview.';calculated.value=null;}catch(e){error.value=e.message;}finally{busy.value=false;}}
+watchFeedback(error,message);
 </script>
 <template>
   <div class="page-heading"><div><p class="eyebrow">KNOW WHAT’S ON YOUR PLATE</p><h1>A little food clarity<span class="lime-dot">.</span></h1><p>Build a meal, see its nutrition, and keep a simple diary.</p></div><span class="tag">2,853 REFERENCE FOODS</span></div>

@@ -55,6 +55,7 @@ if (string.IsNullOrWhiteSpace(redis)) {
 } else builder.Services.AddStackExchangeRedisCache(o => { o.Configuration = redis; o.InstanceName = "jp-platform:"; });
 builder.Services.AddAuthorization();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<FoodDiscovery>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDb>().AddCheck<CacheHealth>("cache");
@@ -133,11 +134,16 @@ api.MapGet("/catalog/exercises", async (IDistributedCache cache, IWebHostEnviron
     if (json is null) { json = await File.ReadAllTextAsync(Path.Combine(env.ContentRootPath, "Catalog/exercises.json"), ct); await cache.SetStringAsync("exercises:v1", json, new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1) }, ct); }
     return Results.Content(json, "application/json");
 });
-api.MapGet("/catalog/foods", async (string? q, int? after, int? take, AppDb db, CancellationToken ct) => {
-    if (q?.Length > 100) return Invalid("Search is limited to 100 characters.");
+api.MapGet("/catalog/food-filters", () => Results.Ok(new { categories = FoodDiscovery.Categories, cuisines = FoodDiscovery.Cuisines }));
+api.MapGet("/catalog/foods", async (string? q, string? category, string? cuisine, bool? common, int? after, int? take, FoodDiscovery discovery, AppDb db, CancellationToken ct) => {
+    if (q?.Length > 100 || (category is not null && !FoodDiscovery.Categories.Contains(category)) || (cuisine is not null && !FoodDiscovery.Cuisines.Contains(cuisine))) return Invalid("Choose a valid food filter and search up to 100 characters.");
     var query = db.Foods.AsNoTracking().Where(x => x.Id > (after ?? 0));
-    if (!string.IsNullOrWhiteSpace(q)) query = query.Where(x => x.Name.Contains(q));
-    return Results.Ok(await query.OrderBy(x => x.Id).Take(Math.Clamp(take ?? 30, 1, 100)).ToArrayAsync(ct));
+    if (!string.IsNullOrWhiteSpace(q) || category is not null || cuisine is not null || common == true) {
+        var names = discovery.Match(q, category, cuisine, common == true);
+        query = query.Where(x => names.Contains(x.Name));
+    }
+    var rows = await query.OrderBy(x => x.Id).Take(Math.Clamp(take ?? 30, 1, 100)).ToArrayAsync(ct);
+    return Results.Ok(rows.Select(f => new { f.Id, f.Name, f.Kcal100g, f.Protein100g, f.Carbs100g, f.Fat100g, f.Source, f.SourceUrl, category = FoodDiscovery.Category(f.Name), cuisines = FoodDiscovery.Tags(f.Name), imageUrl = FoodDiscovery.Image(f.Name), isCommon = FoodDiscovery.IsCommon(f.Name) }));
 });
 api.MapPost("/nutrition/calculate", async (FoodPortion[] portions, AppDb db, CancellationToken ct) => {
     var result = await Calculate(portions, db, ct); return result is null ? Invalid("Choose 1–30 known foods, each between 0 and 5,000 grams.") : Results.Ok(result);
