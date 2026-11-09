@@ -1,4 +1,4 @@
-import { readMember, signOut, notifySessionChange } from './auth-client.js?v=20261109.4';
+import { readMember, signOut, notifySessionChange } from './auth-client.js?v=20261109.5';
 let state = { loading: true, user: null, error: false }, version = 0, pending = null, checkedAt = 0;
 const listeners = new Set();
 export function subscribeMember(listener) { listeners.add(listener); listener(state); return () => listeners.delete(listener); }

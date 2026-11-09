@@ -25,6 +25,8 @@ services:
     cap_drop: [ALL]
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      # ثبت‌نام ورزشکار فعال است؛ نقش‌های مدیریتی همچنان فقط توسط ادمین تعیین می‌شوند.
+      Membership__AllowPublicRegistration: ${JP_ALLOW_PUBLIC_REGISTRATION:-true}
       Proxy__TrustedProxyHost: web
       Database__UseSqlite: 'false'
       ConnectionStrings__Database: ${JP_DATABASE_CONNECTION:?Set the dedicated runtime SQL connection string}
