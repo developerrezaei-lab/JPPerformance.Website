@@ -1,0 +1,42 @@
+# Standalone local stack: no changes to existing hosting/Caddy/SQL containers.
+name: jpperformance-platform-local
+services:
+  web:
+    build:
+      context: .
+      dockerfile: platform/Portal/Dockerfile
+    ports: ['127.0.0.1:${JP_PLATFORM_PORT:-8093}:8080']
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./deploy/nginx.platform.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      jp-api: { condition: service_healthy }
+    networks: [platform]
+  jp-api:
+    build:
+      context: .
+      dockerfile: platform/Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Database__UseSqlite: 'true'
+      ConnectionStrings__Database: Data Source=/app/data/platform.db
+      ConnectionStrings__Redis: redis:6379,abortConnect=false
+      DataProtection__Path: /app/keys
+    volumes: [local-data:/app/data, local-keys:/app/keys]
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [platform]
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--maxmemory', '96mb', '--maxmemory-policy', 'allkeys-lru']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [platform]
+volumes:
+  local-data:
+  local-keys:
+networks:
+  platform:

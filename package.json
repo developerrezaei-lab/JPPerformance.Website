@@ -1,0 +1,8 @@
+{
+  "name": "jpperformance-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/preview.cjs",
+    "test": "node tests/fitness-core.test.cjs && node tests/access-entry.test.cjs && node tests/member-nav.test.cjs && node tests/platform.integration.cjs && node tests/proxy-security.cjs"
+  }
+}
